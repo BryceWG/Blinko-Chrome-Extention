@@ -1,3 +1,5 @@
+const https = require('https');
+
 async function extractPageContent() {
     try {
         // 获取存储的设置
@@ -10,25 +12,41 @@ async function extractPageContent() {
 
         let content;
         if (settings.useJinaReader) {
-            const response = await fetch(settings.jinaApiUrl, {
-                method: 'POST',
+            const options = {
+                hostname: 'r.jina.ai',
+                path: 'https://example.com',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${settings.jinaApiKey}`
-                },
-                body: JSON.stringify({ url: window.location.href })
+                }
+            };
+
+            return new Promise((resolve, reject) => {
+                const req = https.request(options, res => {
+                    let data = '';
+
+                    res.on('data', chunk => {
+                        data += chunk;
+                    });
+
+                    res.on('end', () => {
+                        try {
+                            const parsedData = JSON.parse(data);
+                            if (!parsedData.content) {
+                                throw new Error('Jina API返回格式错误');
+                            }
+                            resolve(parsedData.content);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    });
+                });
+
+                req.on('error', error => {
+                    reject(error);
+                });
+
+                req.end();
             });
-
-            if (!response.ok) {
-                throw new Error(`Jina API请求失败: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            if (!data.content) {
-                throw new Error('Jina API返回格式错误');
-            }
-
-            content = data.content;
         } else {
             // 获取正文内容
             content = document.body.innerText

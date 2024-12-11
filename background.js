@@ -1,23 +1,40 @@
+const https = require('https');
+
 function getContentFromJina(url, settings) {
-    return fetch(settings.jinaApiUrl, {
-        method: 'POST',
+    const options = {
+        hostname: 'r.jina.ai',
+        path: 'https://example.com',
         headers: {
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${settings.jinaApiKey}`
-        },
-        body: JSON.stringify({ url: url })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Jina API请求失败: ${response.statusText}`);
         }
-        return response.json();
-    })
-    .then(data => {
-        if (!data.content) {
-            throw new Error('Jina API返回格式错误');
-        }
-        return data.content;
+    };
+
+    return new Promise((resolve, reject) => {
+        const req = https.request(options, res => {
+            let data = '';
+
+            res.on('data', chunk => {
+                data += chunk;
+            });
+
+            res.on('end', () => {
+                try {
+                    const parsedData = JSON.parse(data);
+                    if (!parsedData.content) {
+                        throw new Error('Jina API返回格式错误');
+                    }
+                    resolve(parsedData.content);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        });
+
+        req.on('error', error => {
+            reject(error);
+        });
+
+        req.end();
     });
 }
 
