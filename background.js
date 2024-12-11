@@ -1,3 +1,26 @@
+function getContentFromJina(url, settings) {
+    return fetch(settings.jinaApiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${settings.jinaApiKey}`
+        },
+        body: JSON.stringify({ url: url })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Jina API请求失败: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.content) {
+            throw new Error('Jina API返回格式错误');
+        }
+        return data.content;
+    });
+}
+
 // 监听来自popup和content script的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "getContent") {
@@ -31,8 +54,15 @@ async function handleContentRequest(request, sendResponse) {
             throw new Error('请先完成API设置');
         }
 
+        let content;
+        if (settings.useJinaReader) {
+            content = await getContentFromJina(request.url, settings);
+        } else {
+            content = request.content;
+        }
+
         // 生成总结
-        const summary = await getSummaryFromModel(request.content, settings);
+        const summary = await getSummaryFromModel(content, settings);
         
         // 发送总结结果回popup
         chrome.runtime.sendMessage({
@@ -149,8 +179,15 @@ async function handleFloatingBallRequest(request, sendResponse) {
             throw new Error('请先完成API设置');
         }
 
+        let content;
+        if (settings.useJinaReader) {
+            content = await getContentFromJina(request.url, settings);
+        } else {
+            content = request.content;
+        }
+
         // 生成总结
-        const summary = await getSummaryFromModel(request.content, settings);
+        const summary = await getSummaryFromModel(content, settings);
         
         // 准备最终内容
         let finalContent = summary;

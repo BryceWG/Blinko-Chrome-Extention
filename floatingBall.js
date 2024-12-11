@@ -1,6 +1,4 @@
-// 创建并初始化悬浮球
 async function createFloatingBall() {
-    // 检查是否启用悬浮球
     const result = await chrome.storage.sync.get('settings');
     const settings = result.settings || {};
     if (settings.enableFloatingBall === false) {
@@ -16,7 +14,6 @@ async function createFloatingBall() {
         <div class="loading-circle"></div>
     `;
     
-    // 添加样式
     const style = document.createElement('style');
     style.textContent = `
         #blinko-floating-ball {
@@ -82,7 +79,6 @@ async function createFloatingBall() {
     `;
     document.head.appendChild(style);
 
-    // 从存储中获取位置
     chrome.storage.sync.get(['ballPosition'], function(result) {
         const position = result.ballPosition || { right: '20px', bottom: '20px' };
         Object.assign(ball.style, position);
@@ -93,7 +89,6 @@ async function createFloatingBall() {
     let isDragging = false;
     let startX, startY, startRight, startBottom;
 
-    // 处理拖拽
     ball.addEventListener('mousedown', function(e) {
         if (isProcessing) return;
         
@@ -127,7 +122,6 @@ async function createFloatingBall() {
         isDragging = false;
         ball.style.transition = 'transform 0.5s ease';
         
-        // 保存新位置
         const position = {
             right: ball.style.right,
             bottom: ball.style.bottom
@@ -135,7 +129,6 @@ async function createFloatingBall() {
         chrome.storage.sync.set({ ballPosition: position });
     });
 
-    // 处理点击事件
     ball.addEventListener('click', async function(e) {
         if (isDragging || isProcessing) return;
         
@@ -143,27 +136,36 @@ async function createFloatingBall() {
         ball.classList.add('processing');
 
         try {
-            // 获取页面内容
-            const pageContent = document.body.innerText;
             const pageTitle = document.title;
             const url = window.location.href;
 
-            // 发送消息给background script处理
+            const result = await chrome.storage.sync.get('settings');
+            const settings = result.settings;
+
+            if (!settings) {
+                throw new Error('未找到设置信息');
+            }
+
+            let content;
+            if (settings.useJinaReader) {
+                content = await getContentFromJina(url, settings);
+            } else {
+                content = document.body.innerText;
+            }
+
             const response = await chrome.runtime.sendMessage({
                 action: 'processAndSendContent',
-                content: pageContent,
+                content: content,
                 title: pageTitle,
                 url: url
             });
 
             if (response.success) {
-                // 显示成功动画
                 ball.classList.remove('processing');
                 const iconImg = ball.querySelector('img');
                 ball.classList.add('success');
                 iconImg.src = chrome.runtime.getURL('images/icon128_success_reverse.png');
 
-                // 3秒后恢复原状
                 setTimeout(() => {
                     ball.classList.remove('success');
                     iconImg.src = chrome.runtime.getURL('images/icon128.png');
@@ -180,7 +182,6 @@ async function createFloatingBall() {
     });
 }
 
-// 监听来自popup的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'updateFloatingBallState') {
         const ball = document.getElementById('blinko-floating-ball');
@@ -196,5 +197,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-// 初始化悬浮球
 createFloatingBall();

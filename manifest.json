@@ -7,7 +7,8 @@
     "activeTab",
     "storage",
     "contextMenus",
-    "scripting"
+    "scripting",
+    "https://api.jina.ai/*"
   ],
   "host_permissions": [
     "<all_urls>"

@@ -1,12 +1,42 @@
-// 提取页面内容
-function extractPageContent() {
+async function extractPageContent() {
     try {
-        // 获取正文内容
-        const content = document.body.innerText
-            .replace(/[\n\r]+/g, '\n') // 将多个换行符替换为单个
-            .replace(/\s+/g, ' ') // 将多个空格替换为单个
-            .trim(); // 移除首尾空白
-        
+        // 获取存储的设置
+        const result = await chrome.storage.sync.get('settings');
+        const settings = result.settings;
+
+        if (!settings) {
+            throw new Error('未找到设置信息');
+        }
+
+        let content;
+        if (settings.useJinaReader) {
+            const response = await fetch(settings.jinaApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${settings.jinaApiKey}`
+                },
+                body: JSON.stringify({ url: window.location.href })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Jina API请求失败: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            if (!data.content) {
+                throw new Error('Jina API返回格式错误');
+            }
+
+            content = data.content;
+        } else {
+            // 获取正文内容
+            content = document.body.innerText
+                .replace(/[\n\r]+/g, '\n') // 将多个换行符替换为单个
+                .replace(/\s+/g, ' ') // 将多个空格替换为单个
+                .trim(); // 移除首尾空白
+        }
+
         return content;
     } catch (error) {
         console.error('提取内容时出错:', error);

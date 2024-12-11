@@ -1,4 +1,3 @@
-// 默认设置
 const defaultSettings = {
     targetUrl: '',
     authKey: '',
@@ -27,7 +26,8 @@ const defaultSettings = {
     includeSelectionUrl: false, // 划词保存是否包含URL
     summaryTag: '#阅读/网页',   // 网页总结的标签
     selectionTag: '#摘录',      // 划词保存的标签
-    enableFloatingBall: true    // 是否启用悬浮球
+    enableFloatingBall: true,   // 是否启用悬浮球
+    useJinaReader: false        // 是否启用Jina Reader API
 };
 
 // 临时存储键
@@ -67,6 +67,7 @@ async function loadSettings() {
         document.getElementById('summaryTag').value = settings.summaryTag || defaultSettings.summaryTag;
         document.getElementById('selectionTag').value = settings.selectionTag || defaultSettings.selectionTag;
         document.getElementById('enableFloatingBall').checked = settings.enableFloatingBall !== false;
+        document.getElementById('useJinaReader').checked = settings.useJinaReader !== false;
         
         return settings;
     } catch (error) {
@@ -91,7 +92,8 @@ async function saveSettings() {
             includeSelectionUrl: document.getElementById('includeSelectionUrl').checked,
             summaryTag: document.getElementById('summaryTag').value.trim(),
             selectionTag: document.getElementById('selectionTag').value.trim(),
-            enableFloatingBall: document.getElementById('enableFloatingBall').checked
+            enableFloatingBall: document.getElementById('enableFloatingBall').checked,
+            useJinaReader: document.getElementById('useJinaReader').checked
         };
 
         // 保存到chrome.storage
@@ -139,6 +141,7 @@ async function resetSettings() {
         document.getElementById('summaryTag').value = settings.summaryTag;
         document.getElementById('selectionTag').value = settings.selectionTag;
         document.getElementById('enableFloatingBall').checked = settings.enableFloatingBall;
+        document.getElementById('useJinaReader').checked = settings.useJinaReader;
         
         console.log('设置已重置为默认值:', settings);
         showStatus('设置已重置为默认值', 'success');
