@@ -2,11 +2,15 @@ import { initializeContextMenu, handleContextMenuClick } from './contextMenu.js'
 import { handleContentRequest, handleSaveSummary, handleFloatingBallRequest } from './messageHandler.js';
 import { getSummaryState, clearSummaryState } from './summaryState.js';
 
+// 检测是否是Firefox
+const isFirefox = typeof browser !== 'undefined';
+const api = isFirefox ? browser : chrome;
+
 // 初始化右键菜单
 initializeContextMenu();
 
 // 监听来自popup和content script的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+api.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "getContent") {
         // 直接处理，不需要响应
         handleContentRequest(request);
@@ -18,7 +22,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // 立即处理并返回响应
         handleSaveSummary(request).then(response => {
             try {
-                chrome.runtime.sendMessage({
+                api.runtime.sendMessage({
                     action: 'saveSummaryResponse',
                     response: response
                 }).catch(() => {
@@ -42,7 +46,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // 尝试更新悬浮球状态
             if (sender.tab && sender.tab.id) {
                 try {
-                    chrome.tabs.sendMessage(sender.tab.id, {
+                    api.tabs.sendMessage(sender.tab.id, {
                         action: 'updateFloatingBallState',
                         success: response.success,
                         error: response.error
@@ -58,7 +62,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // 尝试更新悬浮球状态
             if (sender.tab && sender.tab.id) {
                 try {
-                    chrome.tabs.sendMessage(sender.tab.id, {
+                    api.tabs.sendMessage(sender.tab.id, {
                         action: 'updateFloatingBallState',
                         success: false,
                         error: error.message || '处理请求失败'
@@ -76,9 +80,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.action === "showNotification") {
         // 显示系统通知
-        chrome.notifications.create({
+        api.notifications.create({
             type: 'basic',
-            iconUrl: chrome.runtime.getURL('images/icon128.png'),
+            iconUrl: api.runtime.getURL('images/icon128.png'),
             title: request.title || '通知',
             message: request.message || '',
             priority: 2
@@ -97,7 +101,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // 立即发送响应，避免通道关闭
         clearSummaryState().then(() => {
             try {
-                chrome.runtime.sendMessage({
+                api.runtime.sendMessage({
                     action: 'clearSummaryResponse',
                     success: true
                 }).catch(() => {
@@ -115,21 +119,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // 监听右键菜单点击
-chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
+api.contextMenus.onClicked.addListener(handleContextMenuClick);
 
 // 监听通知点击
-chrome.notifications.onClicked.addListener(async (notificationId) => {
+api.notifications.onClicked.addListener(async (notificationId) => {
     try {
         // 获取当前标签页
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const [tab] = await api.tabs.query({ active: true, currentWindow: true });
         if (tab) {
             // 设置标记
-            await chrome.storage.local.set({ 
+            await api.storage.local.set({ 
                 notificationClicked: true,
                 notificationTabId: tab.id
             });
             // 清除通知
-            chrome.notifications.clear(notificationId);
+            api.notifications.clear(notificationId);
         }
     } catch (error) {
         console.error('处理通知点击失败:', error);

@@ -63,7 +63,7 @@ async function loadSettings() {
             // 标签设置保持原样，不使用默认值
         }
 
-        console.log('加载的设置:', settings);
+        console.log('加载��设置:', settings);
         
         // 更新UI
         const elements = {
@@ -208,15 +208,20 @@ async function fetchAiConfig() {
 
         showStatus('正在获取配置...', 'loading');
         
+        // 准备认证头部
+        const headers = new Headers({
+            'Content-Type': 'application/json',
+            'Authorization': authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`
+        });
+
         const response = await fetch(configUrl, {
             method: 'GET',
-            headers: {
-                'Authorization': authKey
-            }
+            headers: headers
         });
 
         if (!response.ok) {
-            throw new Error(`获取配置失败: ${response.status}`);
+            const errorText = await response.text().catch(() => '未知错误');
+            throw new Error(`获取配置失败: ${response.status}, ${errorText}`);
         }
 
         const config = await response.json();

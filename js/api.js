@@ -59,7 +59,7 @@ async function getSummaryFromModel(content, settings) {
 async function sendToBlinko(content, url, title) {
     try {
         // 获取设置
-        const result = await chrome.storage.sync.get('settings');
+        const result = await browser.storage.sync.get('settings');
         const settings = result.settings;
         
         if (!settings || !settings.targetUrl || !settings.authKey) {
@@ -70,20 +70,24 @@ async function sendToBlinko(content, url, title) {
         const baseUrl = settings.targetUrl.replace(/\/+$/, ''); // 移除末尾的斜杠
         const requestUrl = `${baseUrl}/note/upsert`;
 
+        // 准备认证头部
+        const headers = new Headers({
+            'Content-Type': 'application/json',
+            'Authorization': settings.authKey.startsWith('Bearer ') ? settings.authKey : `Bearer ${settings.authKey}`
+        });
+
         // 发送请求
         const response = await fetch(requestUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': settings.authKey
-            },
+            headers: headers,
             body: JSON.stringify({
                 content: content
             })
         });
 
         if (!response.ok) {
-            throw new Error(`保存失败: ${response.status}`);
+            const errorText = await response.text().catch(() => '未知错误');
+            throw new Error(`保存失败: ${response.status}, ${errorText}`);
         }
 
         const data = await response.json();
@@ -94,7 +98,18 @@ async function sendToBlinko(content, url, title) {
     }
 }
 
-// 发送内容到目标
+async function setExtensionIcon(iconPath) {
+    try {
+        // 使用统一的action API
+        const api = typeof browser !== 'undefined' ? browser : chrome;
+        await api.action.setIcon({
+            path: api.runtime.getURL(iconPath)
+        });
+    } catch (error) {
+        console.error('设置图标失败:', error);
+    }
+}
+
 async function sendToTarget(content, settings, url, retryCount = 0, title = '', isSelection = false) {
     if (!settings.targetUrl) {
         throw new Error('请设置目标URL');
@@ -114,43 +129,39 @@ async function sendToTarget(content, settings, url, retryCount = 0, title = '', 
         // 获取完整的API URL
         const fullUrl = getFullApiUrl(settings.targetUrl, '/note/upsert');
 
+        // 准备认证头部
+        const headers = new Headers({
+            'Content-Type': 'application/json',
+            'Authorization': settings.authKey.startsWith('Bearer ') ? settings.authKey : `Bearer ${settings.authKey}`
+        });
+
         const response = await fetch(fullUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': settings.authKey
-            },
+            headers: headers,
             body: JSON.stringify({
                 content: finalContent
             })
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text().catch(() => '未知错误');
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
 
         // 显示成功图标
-        try {
-            await chrome.action.setIcon({
-                path: chrome.runtime.getURL("images/icon128_success.png")
-            });
-            // 3秒后恢复原始图标
-            setTimeout(async () => {
-                try {
-                    await chrome.action.setIcon({
-                        path: chrome.runtime.getURL("images/icon128.png")
-                    });
-                } catch (error) {
-                    console.error('恢复图标失败:', error);
-                }
-            }, 3000);
-        } catch (error) {
-            console.error('设置成功图标失败:', error);
-        }
+        await setExtensionIcon("images/icon128_success.png");
+        
+        // 3秒后恢复原始图标
+        setTimeout(() => {
+            setExtensionIcon("images/icon128.png");
+        }, 3000);
 
         return response;
     } catch (error) {
+        console.error('发送请求失败:', error);
         if (retryCount < 3) {
+            // 添加延迟重试
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
             return sendToTarget(content, settings, url, retryCount + 1, title, isSelection);
         }
         throw new Error(`发送失败: ${error.message}`);
