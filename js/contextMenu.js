@@ -1,4 +1,4 @@
-import { sendToBlinko, sendToTarget } from './api.js';
+import { sendToBlinko, sendToTarget, uploadImageUrl } from './api.js';
 import { showSuccessIcon } from './ui.js';
 
 // 初始化右键菜单
@@ -71,21 +71,19 @@ async function handleContextMenuClick(info, tab) {
                 throw new Error('未找到设置信息');
             }
 
+            // 先上传图片
+            const imageAttachment = await uploadImageUrl(info.srcUrl, settings);
+
             // 构建Markdown格式的图片链接
-            let content = `![${tab.title || '图片'}](${info.srcUrl})`;
+            let content = '';
             
             // 如果设置中选择包含URL，则添加原网页链接
             if (settings.includeImageUrl) {
-                content += `\n\n> 来源：[${tab.title}](${tab.url})`;
+                content = `> 来源：[${tab.title}](${tab.url})`;
             }
 
-            // 添加图片标签，确保前面有换行符
-            if (settings.imageTag) {
-                content += `\n\n${settings.imageTag}`;
-            }
-
-            // 发送到Blinko
-            const response = await sendToBlinko(content);
+            // 发送到Blinko，包含图片附件
+            const response = await sendToBlinko(content, tab.url, tab.title, imageAttachment, 'image');
             
             if (response.success) {
                 // 通知用户保存成功
@@ -95,7 +93,7 @@ async function handleContextMenuClick(info, tab) {
             }
         } catch (error) {
             console.error('保存图片失败:', error);
-            // 可以考虑添加一个通知来显示错误信息
+            // 显示错误通知
             chrome.notifications.create({
                 type: 'basic',
                 iconUrl: 'images/icon128.png',

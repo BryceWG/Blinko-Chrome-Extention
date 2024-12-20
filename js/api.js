@@ -55,11 +55,54 @@ async function getSummaryFromModel(content, settings) {
     }
 }
 
+// 上传图片URL到Blinko
+async function uploadImageUrl(imageUrl, settings) {
+    try {
+        if (!settings.targetUrl || !settings.authKey) {
+            throw new Error('请先配置Blinko API URL和认证密钥');
+        }
+
+        // 构建上传URL（注意：移除v1路径）
+        const baseUrl = settings.targetUrl.replace(/\/v1\/*$/, '');
+        const uploadUrl = `${baseUrl}/file/upload-by-url`;
+
+        const response = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': settings.authKey
+            },
+            body: JSON.stringify({
+                url: imageUrl
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`上传图片失败: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.status !== 200 || !data.filePath) {
+            throw new Error('上传图片响应格式错误');
+        }
+
+        return {
+            name: data.fileName,
+            path: data.filePath,
+            size: data.size,
+            type: data.type
+        };
+    } catch (error) {
+        console.error('上传图片失败:', error);
+        throw error;
+    }
+}
+
 // 发送内容到Blinko
-async function sendToBlinko(content, url, title) {
+async function sendToBlinko(content, url, title, imageAttachment = null, type = 'summary') {
     try {
         // 获取设置
-        const result = await browser.storage.sync.get('settings');
+        const result = await chrome.storage.sync.get('settings');
         const settings = result.settings;
         
         if (!settings || !settings.targetUrl || !settings.authKey) {
@@ -67,27 +110,42 @@ async function sendToBlinko(content, url, title) {
         }
 
         // 构建请求URL，确保不重复添加v1
-        const baseUrl = settings.targetUrl.replace(/\/+$/, ''); // 移除末尾的斜杠
+        const baseUrl = settings.targetUrl.replace(/\/+$/, '');
         const requestUrl = `${baseUrl}/note/upsert`;
 
-        // 准备认证头部
-        const headers = new Headers({
-            'Content-Type': 'application/json',
-            'Authorization': settings.authKey.startsWith('Bearer ') ? settings.authKey : `Bearer ${settings.authKey}`
-        });
+        // 根据不同类型添加不同的标签
+        let finalContent = content;
+        if (type === 'summary' && settings.summaryTag) {
+            finalContent = `${content}\n\n${settings.summaryTag}`;
+        } else if (type === 'extract' && settings.extractTag) {
+            finalContent = `${content}\n\n${settings.extractTag}`;
+        } else if (type === 'image' && settings.imageTag) {
+            finalContent = content ? `${content}\n\n${settings.imageTag}` : settings.imageTag;
+        }
+
+        // 构建请求体
+        const requestBody = {
+            content: finalContent,
+            type: 0
+        };
+
+        // 如果有图片附件，添加到请求中
+        if (imageAttachment) {
+            requestBody.attachments = [imageAttachment];
+        }
 
         // 发送请求
         const response = await fetch(requestUrl, {
             method: 'POST',
-            headers: headers,
-            body: JSON.stringify({
-                content: content
-            })
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': settings.authKey
+            },
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
-            const errorText = await response.text().catch(() => '未知错误');
-            throw new Error(`保存失败: ${response.status}, ${errorText}`);
+            throw new Error(`保存失败: ${response.status}`);
         }
 
         const data = await response.json();
@@ -172,5 +230,6 @@ export {
     getFullApiUrl,
     getSummaryFromModel,
     sendToBlinko,
-    sendToTarget
+    sendToTarget,
+    uploadImageUrl
 }; 

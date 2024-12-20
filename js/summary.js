@@ -85,10 +85,15 @@ function initializeSummaryListeners() {
                 throw new Error('内容不能为空');
             }
 
+            // 获取当前总结数据，判断是否是提取场景
+            const currentSummary = await chrome.storage.local.get('currentSummary');
+            const isExtractOnly = currentSummary.currentSummary?.isExtractOnly;
+
             // 发送到background处理
-            const response = await browser.runtime.sendMessage({
+            const response = await chrome.runtime.sendMessage({
                 action: 'saveSummary',
-                content: summaryText
+                content: summaryText,
+                type: isExtractOnly ? 'extract' : 'summary'
             });
 
             if (response && response.success) {

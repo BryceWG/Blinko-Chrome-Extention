@@ -1,4 +1,4 @@
-import { getSummaryFromModel, sendToTarget } from './api.js';
+import { getSummaryFromModel, sendToBlinko, sendToTarget } from './api.js';
 import { getWebContent } from './jinaReader.js';
 import { getSummaryState, updateSummaryState, clearSummaryState, saveSummaryToStorage } from './summaryState.js';
 
@@ -155,7 +155,7 @@ async function handleSaveSummary(request) {
             }
             finalContent = request.content.trim();
         } else {
-            // 如果是总结内容
+            // 如果是总结内容或提取内容
             if (!request.content || !request.content.trim()) {
                 throw new Error('没有可保存的内容');
             }
@@ -169,17 +169,18 @@ async function handleSaveSummary(request) {
                     title = title || currentSummary.currentSummary.title;
                 }
             }
-
-            // 添加总结标签
-            if (settings.summaryTag) {
-                finalContent = `${finalContent}\n\n${settings.summaryTag}`;
-            }
         }
 
         try {
-            const response = await sendToTarget(finalContent, settings, url, 0, title);
+            const response = await sendToBlinko(
+                finalContent,
+                url,
+                title,
+                null,
+                request.type || 'summary'
+            );
             
-            if (response.ok) {
+            if (response.success) {
                 // 如果是总结内容，清除存储
                 if (!request.type || request.type !== 'quickNote') {
                     await chrome.storage.local.remove('currentSummary');
@@ -244,9 +245,15 @@ async function handleFloatingBallRequest(request) {
         let finalContent = summary;
 
         // 发送到服务器（使用现有的重试机制）
-        const response = await sendToTarget(finalContent, settings, request.url, 0, request.title, false);
+        const response = await sendToBlinko(
+            finalContent, 
+            request.url, 
+            request.title, 
+            null, 
+            request.isExtractOnly ? 'extract' : 'summary'
+        );
         
-        if (response.ok) {
+        if (response.success) {
             // 更新状态为完成
             updateSummaryState({
                 status: 'completed',
