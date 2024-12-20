@@ -197,6 +197,8 @@
         .input-container {
             position: relative;
             margin-bottom: 16px;
+            display: flex;
+            align-items: center;
         }
 
         .toggle-visibility {
@@ -211,15 +213,23 @@
             color: #495057;
             font-size: 16px;
             z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
         }
 
         .sensitive-input {
             -webkit-text-security: disc;
+            -moz-text-security: disc;  /* Firefox支持 */
             padding-right: 35px !important;
+            width: 100%;
         }
 
         .sensitive-input.visible {
             -webkit-text-security: none;
+            -moz-text-security: none;  /* Firefox支持 */
         }
 
         /* 设置页面样式 */
@@ -378,8 +388,10 @@
         
         <div class="setting-group">
             <label>Blinko认证密钥:</label>
-            <input type="text" id="authKey" class="sensitive-input" placeholder="your-auth-key">
-            <button class="toggle-visibility" title="显示/隐藏">👁️</button>
+            <div class="input-container">
+                <input type="text" id="authKey" class="sensitive-input text-input" placeholder="your-auth-key">
+                <button class="toggle-visibility" title="显示/隐藏">👁️</button>
+            </div>
             <button id="fetchAiConfig" class="fetch-button">从Blinko获取AI配置</button>
         </div>
 
@@ -391,8 +403,10 @@
         
         <div class="setting-group">
             <label>API密钥:</label>
-            <input type="text" id="apiKey" class="sensitive-input" placeholder="sk-...">
-            <button class="toggle-visibility" title="显示/隐藏">👁️</button>
+            <div class="input-container">
+                <input type="text" id="apiKey" class="sensitive-input text-input" placeholder="sk-...">
+                <button class="toggle-visibility" title="显示/隐藏">👁️</button>
+            </div>
         </div>
 
         <div class="setting-group">
@@ -456,8 +470,10 @@
 
         <div class="setting-group">
             <label>Jina Reader API Key:</label>
-            <input type="text" id="jinaApiKey" class="sensitive-input" placeholder="your-jina-api-key">
-            <button class="toggle-visibility" title="显示/隐藏">👁️</button>
+            <div class="input-container">
+                <input type="text" id="jinaApiKey" class="sensitive-input text-input" placeholder="your-jina-api-key">
+                <button class="toggle-visibility" title="显示/隐藏">👁️</button>
+            </div>
         </div>
 
         <div class="setting-group">

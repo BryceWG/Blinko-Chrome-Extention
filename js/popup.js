@@ -7,13 +7,13 @@ import { checkSummaryState, initializeSummaryListeners, handleSummaryResponse } 
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         // 检查是否是通过通知点击打开的
-        const result = await chrome.storage.local.get(['notificationClicked', 'notificationTabId']);
+        const result = await browser.storage.local.get(['notificationClicked', 'notificationTabId']);
         if (result.notificationClicked) {
             // 检查当前标签页是否匹配
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
             if (tab && tab.id === result.notificationTabId) {
                 // 清除标记
-                await chrome.storage.local.remove(['notificationClicked', 'notificationTabId']);
+                await browser.storage.local.remove(['notificationClicked', 'notificationTabId']);
                 // 切换到主页面
                 const mainTab = document.querySelector('.tablinks[data-tab="main"]');
                 if (mainTab) {
@@ -43,13 +43,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('extractContent').addEventListener('click', async () => {
             try {
                 showStatus('正在提取网页内容...', 'loading');
-                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
                 if (!tab) {
                     throw new Error('无法获取当前标签页');
                 }
 
                 // 发送消息到content script获取内容
-                const response = await chrome.tabs.sendMessage(tab.id, {
+                const response = await browser.tabs.sendMessage(tab.id, {
                     action: 'getContent'
                 });
 
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
 
                 // 发送到background处理
-                await chrome.runtime.sendMessage({
+                await browser.runtime.sendMessage({
                     action: 'getContent',
                     content: response.content,
                     url: response.url,
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 // 监听来自background的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request && request.action === 'handleSummaryResponse') {
         handleSummaryResponse(request);
         sendResponse({ received: true });
@@ -134,9 +134,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // 在popup关闭时通知background
-window.addEventListener('unload', () => {
+window.addEventListener('unload', async () => {
     try {
-        chrome.runtime.sendMessage({ action: "popupClosed" }).catch(() => {
+        // 如果summaryPreview是隐藏的，说明用户已经取消或保存了内容，这时我们需要清理存储
+        const summaryPreview = document.getElementById('summaryPreview');
+        if (summaryPreview && summaryPreview.style.display === 'none') {
+            await browser.storage.local.remove('currentSummary');
+        }
+        
+        browser.runtime.sendMessage({ action: "popupClosed" }).catch(() => {
             // 忽略错误，popup关闭时可能会出现连接错误
         });
     } catch (error) {
