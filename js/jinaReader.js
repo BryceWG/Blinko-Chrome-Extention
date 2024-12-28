@@ -34,10 +34,6 @@ async function getWebContent(url, settings) {
         content += data.data.content;
         content += `\n\n原文链接：[${data.data.title}](${data.data.url})`;
 
-        if (settings.extractTag) {
-            content += `\n\n${settings.extractTag}`;
-        }
-
         return {
             success: true,
             content: content,

@@ -40,41 +40,77 @@ async function handleContentRequest(request) {
             // 生成总结
             summary = await getSummaryFromModel(request.content, settings);
         }
-        
-        // 更新状态为完成
-        updateSummaryState({
-            status: 'completed',
-            summary: summary,
-            url: request.url,
-            title: request.title
-        });
 
-        // 保存到storage
-        await saveSummaryToStorage(summary, request.url, request.title);
+        // 如果是直接保存模式
+        if (request.directSave) {
+            // 直接发送到Blinko
+            const response = await sendToBlinko(
+                summary,
+                request.url,
+                request.title,
+                null,
+                request.isExtractOnly ? 'extract' : 'summary'
+            );
 
-        // 同时保存到临时存储，以便popup可以访问
-        await chrome.storage.local.set({
-            currentSummary: {
-                summary: summary,
-                url: request.url,
-                title: request.title,
-                timestamp: Date.now(),
-                isExtractOnly: request.isExtractOnly
+            if (response.success) {
+                // 显示成功通知
+                chrome.notifications.create({
+                    type: 'basic',
+                    iconUrl: chrome.runtime.getURL('images/icon128.png'),
+                    title: request.isExtractOnly ? '提取完成' : '总结完成',
+                    message: `已完成对"${request.title || '页面'}"的${request.isExtractOnly ? '内容提取' : '内容总结'}并保存到Blinko`,
+                    priority: 2
+                });
+            } else {
+                throw new Error(response.error || '保存失败');
             }
-        });
-
-        // 发送总结结果回popup
-        try {
-            await chrome.runtime.sendMessage({
-                action: 'handleSummaryResponse',
-                success: true,
+        } else {
+            // 原有的保存到storage和发送到popup的逻辑
+            // 更新状态为完成
+            updateSummaryState({
+                status: 'completed',
                 summary: summary,
                 url: request.url,
-                title: request.title,
-                isExtractOnly: request.isExtractOnly
-            }).catch(() => {
-                // 忽略错误，popup可能已关闭
-                // 如果popup已关闭，显示系统通知
+                title: request.title
+            });
+
+            // 保存到storage
+            await saveSummaryToStorage(summary, request.url, request.title);
+
+            // 同时保存到临时存储，以便popup可以访问
+            await chrome.storage.local.set({
+                currentSummary: {
+                    summary: summary,
+                    url: request.url,
+                    title: request.title,
+                    timestamp: Date.now(),
+                    isExtractOnly: request.isExtractOnly
+                }
+            });
+
+            // 发送总结结果回popup
+            try {
+                await chrome.runtime.sendMessage({
+                    action: 'handleSummaryResponse',
+                    success: true,
+                    summary: summary,
+                    url: request.url,
+                    title: request.title,
+                    isExtractOnly: request.isExtractOnly
+                }).catch(() => {
+                    // 忽略错误，popup可能已关闭
+                    // 如果popup已关闭，显示系统通知
+                    chrome.notifications.create({
+                        type: 'basic',
+                        iconUrl: chrome.runtime.getURL('images/icon128.png'),
+                        title: request.isExtractOnly ? '提取完成' : '总结完成',
+                        message: `已完成对"${request.title || '页面'}"的${request.isExtractOnly ? '内容提取' : '内容总结'}，点击扩展图标查看。`,
+                        priority: 2
+                    });
+                });
+            } catch (error) {
+                console.log('Popup可能已关闭，发送消息失败');
+                // 显示系统通知
                 chrome.notifications.create({
                     type: 'basic',
                     iconUrl: chrome.runtime.getURL('images/icon128.png'),
@@ -82,21 +118,12 @@ async function handleContentRequest(request) {
                     message: `已完成对"${request.title || '页面'}"的${request.isExtractOnly ? '内容提取' : '内容总结'}，点击扩展图标查看。`,
                     priority: 2
                 });
-            });
-        } catch (error) {
-            console.log('Popup可能已关闭，发送消息失败');
-            // 显示系统通知
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: chrome.runtime.getURL('images/icon128.png'),
-                title: request.isExtractOnly ? '提取完成' : '总结完成',
-                message: `已完成对"${request.title || '页面'}"的${request.isExtractOnly ? '内容提取' : '内容总结'}，点击扩展图标查看。`,
-                priority: 2
-            });
+            }
         }
 
     } catch (error) {
         console.error('处理内容请求时出错:', error);
+        
         // 更新状态为错误
         updateSummaryState({
             status: 'error',
