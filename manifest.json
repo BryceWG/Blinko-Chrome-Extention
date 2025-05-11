@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "name": "Blinko网页内容提取总结",
   "version": "2.4.0",
   "default_locale": "en",
@@ -8,23 +8,16 @@
     "activeTab",
     "storage",
     "contextMenus",
-    "scripting",
-    "notifications"
-  ],
-  "host_permissions": [
+    "notifications",
     "<all_urls>"
   ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
-    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self'"
-  },
-  "action": {
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
+  "browser_action": {
     "default_popup": "popup.html",
     "default_icon": "images/icon128.png"
   },
   "background": {
-    "service_worker": "js/background.js",
-    "type": "module"
+    "scripts": ["js/background.js"]
   },
   "content_scripts": [
     {
@@ -37,16 +30,18 @@
       "run_at": "document_end"
     }
   ],
-  "web_accessible_resources": [{
-    "resources": [
-      "images/icon128.png",
-      "images/icon128_success.png",
-      "images/icon128_success_reverse.png"
-    ],
-    "matches": ["<all_urls>"],
-    "use_dynamic_url": true
-  }],
+  "web_accessible_resources": [
+    "images/icon128.png",
+    "images/icon128_success.png",
+    "images/icon128_success_reverse.png"
+  ],
   "icons": {
     "128": "images/icon128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "blinko-addon@example.com",
+      "strict_min_version": "57.0"
+    }
   }
 }
